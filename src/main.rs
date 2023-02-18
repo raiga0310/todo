@@ -2,12 +2,14 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
-    Json, Router
+    Json, Router,
 };
-use mime::TEXT_EVENT_STREAM;
-use std::net::SocketAddr;
-use std::env;
 use serde::{Deserialize, Serialize};
+use std::{collections::HashMap,
+    env,
+    sync::{Arc, RwLock}
+};
+use std::net::SocketAddr;
 
 #[derive(Debug, Error)]
 enum RepositoryError {
@@ -46,6 +48,43 @@ impl Todo {
             text,
             completed: false,
         }
+    }
+}
+
+type TodoDatas = HashMap<i32, Todo>;
+
+#[derive(Debug, Clone)]
+pub struct TodoRepositoryForMemory {
+    store: Arc<RwLock<TodoDatas>>,
+}
+
+impl TodoRepositoryForMemory {
+    pub fn new() -> Self {
+        TodoRepositoryForMemory { 
+            store: Arc::default(),
+         }
+    }
+}
+
+impl TodoRepository for TodoRepositoryForMemory {
+    fn create (&self, payload: CreateTodo) -> Todo {
+        todo!();
+    }
+
+    fn find (&self, id: i32) -> Option<Todo> {
+        todo!();
+    }
+
+    fn all(&self) -> Vec<Todo> {
+        todo!();
+    }
+
+    fn update(&self, id: i32, payload: CreateTodo) -> anyhow::Result<Todo> {
+        todo!();
+    }
+
+    fn delete(&self, id: i32) -> anyhow::Result<()> {
+        todo!();
     }
 }
 
