@@ -1,15 +1,18 @@
 use axum::{
+    extract::Extension,
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap,
+use std::{
+    collections::HashMap,
     env,
     sync::{Arc, RwLock}
 };
 use std::net::SocketAddr;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 enum RepositoryError {
@@ -28,6 +31,13 @@ pub trait TodoRepository: Clone + std::marker::Send + std::marker::Sync + 'stati
     fn all(&self) -> Vec<Todo>;
     fn update(&self, id: i32, payload: CreateTodo) -> anyhow::Result<Todo>;
     fn delete(&self, id: i32) -> anyhow::Result<()>;
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct Todo {
+    text: String,
+    id: i32,
+    completed: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -94,7 +104,8 @@ async fn main() {
     env::set_var("RUST_LOG", log_level);
     tracing_subscriber::fmt::init();
 
-    let app = create_app();
+    let repository = TodoRepositoryForMemory::new();
+    let app = create_app(repository);
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     tracing::debug!("listening on {}", addr);
 
@@ -104,10 +115,12 @@ async fn main() {
         .unwrap();
 }
 
-fn create_app() -> Router {
+fn create_app<T: TodoRepository>(repository: T) -> Router {
     Router::new()
         .route("/", get(root))
         .route("/users", post(create_user))
+        .route("/todos", post(create_todo::<T>))
+        .layer(Extension(Arc::new(repository)))
 }
 
 async fn root() -> &'static str {
@@ -123,6 +136,15 @@ async fn create_user(
     };
 
     (StatusCode::CREATED, Json(user))
+}
+
+pub async fn create_todo<T: TodoRepository>(
+    Json(payload) : Json<CreateTodo>,
+    Extension(repository): Extension<Arc<T>>,
+) -> impl IntoResponse {
+    let todo = repository.create(payload);
+
+    (StatusCode::CREATED, Json(todo))
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
@@ -147,8 +169,9 @@ mod test {
 
     #[tokio::test]
     async fn should_return_hello_world() {
+        let repository = TodoRepositoryForMemory::new();
         let req = Request::builder().uri("/").body(Body::empty()).unwrap();
-        let res = create_app().oneshot(req).await.unwrap();
+        let res = create_app(repository).oneshot(req).await.unwrap();
 
         let bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
         let body: String = String::from_utf8(bytes.to_vec()).unwrap();
@@ -158,13 +181,14 @@ mod test {
 
     #[tokio::test]
     async fn should_return_user_data() {
+        let repository = TodoRepositoryForMemory::new();
         let req = Request::builder()
             .uri("/users")
             .method(Method::POST)
             .header(header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
             .body(Body::from(r#"{ "username": "田中 太郎" }"#))
             .unwrap();
-        let res = create_app().oneshot(req).await.unwrap();
+        let res = create_app(repository).oneshot(req).await.unwrap();
 
         let bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
         let body: String = String::from_utf8(bytes.to_vec()).unwrap();
