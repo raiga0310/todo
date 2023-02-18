@@ -4,9 +4,50 @@ use axum::{
     routing::{get, post},
     Json, Router
 };
+use mime::TEXT_EVENT_STREAM;
 use std::net::SocketAddr;
 use std::env;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Error)]
+enum RepositoryError {
+    #[error("NotFound, id is {0}")]
+    NotFound(i32),    
+}
+
+/// operation to TODO information
+/// create: POST -- create new TODO
+/// find: GET -- find a TODO
+/// all: GET -- find all TODOs
+/// update: PUT,PATCH -- change a specify TODO
+pub trait TodoRepository: Clone + std::marker::Send + std::marker::Sync + 'static {
+    fn create(&self, payload: CreateTodo) -> Todo;
+    fn find(&self, id: i32) -> Option<Todo>;
+    fn all(&self) -> Vec<Todo>;
+    fn update(&self, id: i32, payload: CreateTodo) -> anyhow::Result<Todo>;
+    fn delete(&self, id: i32) -> anyhow::Result<()>;
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct CreateTodo {
+    text: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct UpdateTodo {
+    text: String,
+    completed: Option<bool>,
+}
+
+impl Todo {
+    pub fn new(id: i32, text: String) -> Self {
+        Self {
+            id,
+            text,
+            completed: false,
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() {
