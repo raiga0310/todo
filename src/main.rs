@@ -1,6 +1,12 @@
-use axum::{routing::get, Router};
+use axum::{
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router
+};
 use std::net::SocketAddr;
 use std::env;
+use serde::{Deserialize, Serialize};
 
 #[tokio::main]
 async fn main() {
@@ -8,8 +14,10 @@ async fn main() {
     env::set_var("RUST_LOG", log_level);
     tracing_subscriber::fmt::init();
 
-    let app = Router::new().route("/", get(root));
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let app = Router::new()
+        .route("/", get(root))
+        .route("/users", post(create_user));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     tracing::debug!("listening on {}", addr);
 
     axum::Server::bind(&addr)
@@ -20,4 +28,26 @@ async fn main() {
 
 async fn root() -> &'static str {
     "Hello, World"
+}
+
+async fn create_user(
+    Json(payload) : Json<CreateUser>,
+) -> impl IntoResponse {
+    let user = User {
+        id: 1337,
+        username: payload.username
+    };
+
+    (StatusCode::CREATED, Json(user))
+}
+
+#[derive(Deserialize)]
+struct CreateUser {
+    username: String,
+}
+
+#[derive(Serialize)]
+struct User {
+    id: u64,
+    username: String,
 }
