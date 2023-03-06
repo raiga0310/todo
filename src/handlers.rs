@@ -1,13 +1,13 @@
 use axum::{
-    extract::{Extension, Path, FromRequest, RequestParts},
-    http::StatusCode, 
-    response::IntoResponse, 
-    Json, async_trait, BoxError
+    async_trait,
+    extract::{Extension, FromRequest, Path, RequestParts},
+    http::StatusCode,
+    response::IntoResponse,
+    BoxError, Json,
 };
-use hyper::Request;
-use serde::de::{DeserializeOwned, value};
-use validator::Validate;
+use serde::de::DeserializeOwned;
 use std::sync::Arc;
+use validator::Validate;
 
 use crate::repositories::{CreateTodo, TodoRepository, UpdateTodo};
 
@@ -39,25 +39,28 @@ where
 pub async fn create_todo<T: TodoRepository>(
     ValidatedJson(payload): ValidatedJson<CreateTodo>,
     Extension(repository): Extension<Arc<T>>,
-) -> impl IntoResponse {
-    let todo = repository.create(payload);
+) -> Result<impl IntoResponse, StatusCode> {
+    let todo = repository
+        .create(payload)
+        .await
+        .or(Err(StatusCode::NOT_FOUND))?;
 
-    (StatusCode::CREATED, Json(todo))
+    Ok((StatusCode::CREATED, Json(todo)))
 }
 
 pub async fn find_todo<T: TodoRepository>(
     Path(id): Path<i32>,
     Extension(repository): Extension<Arc<T>>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let todo = repository.find(id).ok_or(StatusCode::NOT_FOUND)?;
+    let todo = repository.find(id).await.or(Err(StatusCode::NOT_FOUND))?;
     Ok((StatusCode::OK, Json(todo)))
 }
 
 pub async fn all_todo<T: TodoRepository>(
     Extension(repository): Extension<Arc<T>>,
-) -> impl IntoResponse {
-    let todos = repository.all();
-    (StatusCode::OK, Json(todos))
+) -> Result<impl IntoResponse, StatusCode> {
+    let todos = repository.all().await.unwrap();
+    Ok((StatusCode::OK, Json(todos)))
 }
 
 pub async fn update_todo<T: TodoRepository>(
@@ -67,6 +70,7 @@ pub async fn update_todo<T: TodoRepository>(
 ) -> Result<impl IntoResponse, StatusCode> {
     let todo = repository
         .update(id, payload)
+        .await
         .or(Err(StatusCode::NOT_FOUND))?;
     Ok((StatusCode::CREATED, Json(todo)))
 }
@@ -77,6 +81,7 @@ pub async fn delete_todo<T: TodoRepository>(
 ) -> StatusCode {
     repository
         .delete(id)
+        .await
         .map(|_| StatusCode::NO_CONTENT)
         .unwrap_or(StatusCode::NOT_FOUND)
 }
