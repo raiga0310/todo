@@ -62,7 +62,7 @@ fn create_app<T: TodoRepository>(repository: T) -> Router {
             CorsLayer::new()
                 .allow_origin("http://127.0.0.1:3001".parse::<HeaderValue>().unwrap())
                 .allow_methods(Any)
-                .allow_headers(vec![CONTENT_TYPE])
+                .allow_headers(vec![CONTENT_TYPE]),
         )
 }
 

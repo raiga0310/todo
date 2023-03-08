@@ -1,0 +1,13 @@
+-- Add migration script here
+CREATE TABLE label
+(
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+CREATE TABLE todo_labels
+(
+    id SERIAL PRIMARY KEY,
+    todo_id INTEGER NOT NULL REFERENCES todos (id) DEFERABLE INITIALLY DEFERED,
+    label_id INTEGER NOT NULL REFERENCES todos (id) DEFERABLE INITIALLY DEFERED,
+)
