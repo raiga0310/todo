@@ -11,7 +11,7 @@ database-test = []
 
 [dependencies]
 
-axum = "0.4.8"
+axum = "0.4.6"
 http-body = "0.4.3"
 validator = { version = "0.16.0", features = ["derive"] }
 hyper = { version = "0.14.16", features = ["full"] }
