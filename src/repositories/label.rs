@@ -2,6 +2,7 @@ use super::RepositoryError;
 use axum::async_trait;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use validator::Validate;
 
 #[async_trait]
 pub trait LabelRepository: Clone + std::marker::Send + std::marker::Sync + 'static {
@@ -16,7 +17,7 @@ pub struct Label {
     pub id: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Validate, Clone, PartialEq, Eq)]
 pub struct CreateLabel {
     pub name: String,
 }
@@ -43,7 +44,7 @@ impl LabelRepository for LabelRepositoryforDB {
     async fn create(&self, name: String) -> anyhow::Result<Label> {
         let optional_label = sqlx::query_as::<_, Label>(
             r#"
-                select * from where name = $1
+                select * from labels where name=$1
             "#,
         )
         .bind(name.clone())
