@@ -30,11 +30,45 @@ pub struct TodoEntity {
 }
 
 fn fold_entities(rows: Vec<TodoWithLabelFromRow>) -> Vec<TodoEntity> {
-    rows.iter()
-        .fold(vec![], |mut accum: Vec<TodoEntity>, current| {
-            accum.push(TodoEntity { text: current.text.clone(), id: current.id, completed: current.completed, labels: vec![] });
-            accum
-        })
+    let mut rows = rows.iter();
+    let mut accum: Vec<TodoEntity> = vec![];
+
+    'outer: while let Some(row) = rows.next() {
+        let mut todos = accum.iter_mut();
+        while let Some(todo) = todos.next() {
+            if todo.id == row.id {
+                todo.labels.push(Label {
+                    id: row.label_id.unwrap(),
+                    name: row.label_name.clone().unwrap(),
+                });
+                continue 'outer;
+            }
+        }
+
+        let labels = if row.label_id.is_some() {
+            vec![Label {
+                id: row.label_id.unwrap(),
+                name: row.label_name.clone().unwrap(),
+            }]
+        } else {
+            vec![]
+        };
+
+        accum.push(TodoEntity {
+            text: row.text.clone(),
+            id: row.id,
+            completed: row.completed,
+            labels,
+        });
+    }
+
+    accum
+
+    /*rows.iter()
+    .fold(vec![], |mut accum: Vec<TodoEntity>, current| {
+        accum.push(TodoEntity { text: current.text.clone(), id: current.id, completed: current.completed, labels: vec![] });
+        accum
+    })*/
 }
 
 fn fold_entity(row: TodoWithLabelFromRow) -> TodoEntity {
@@ -49,6 +83,8 @@ pub struct TodoWithLabelFromRow {
     pub text: String,
     pub id: i32,
     pub completed: bool,
+    pub label_id: Option<i32>,
+    pub label_name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Validate)]
@@ -56,6 +92,7 @@ pub struct CreateTodo {
     #[validate(length(min = 1, message = "Can not be empty"))]
     #[validate(length(max = 100, message = "Over text length"))]
     text: String,
+    labels: Vec<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Validate)]
@@ -122,7 +159,7 @@ impl TodoRepository for TodoRepositoryForDB {
         )
         .fetch_all(&self.pool)
         .await?;
-    Ok(fold_entities(todo))
+        Ok(fold_entities(todo))
     }
     async fn update(&self, id: i32, payload: UpdateTodo) -> anyhow::Result<TodoEntity> {
         let old_todo = self.find(id).await?;
@@ -166,6 +203,61 @@ mod test {
     use sqlx::PgPool;
     use std::env;
 
+    #[test]
+    fn fold_entities_test() {
+        let label_1 = Label {
+            id: 1,
+            name: String::from("label 1"),
+        };
+        let label_2 = Label {
+            id: 2,
+            name: String::from("label 2"),
+        };
+
+        let rows = vec![
+            TodoWithLabelFromRow {
+                id: 1,
+                text: String::from("todo 1"),
+                completed: false,
+                label_id: Some(label_1.id),
+                label_name: Some(label_1.name.clone()),
+            },
+            TodoWithLabelFromRow {
+                id: 1,
+                text: String::from("todo 1"),
+                completed: false,
+                label_id: Some(label_2.id),
+                label_name: Some(label_2.name.clone()),
+            },
+            TodoWithLabelFromRow {
+                id: 2,
+                text: String::from("todo 2"),
+                completed: false,
+                label_id: Some(label_1.id),
+                label_name: Some(label_1.name.clone()),
+            },
+        ];
+
+        let res = fold_entities(rows);
+        assert_eq!(
+            res,
+            vec![
+                TodoEntity {
+                    id: 1,
+                    text: String::from("todo 1"),
+                    completed: false,
+                    labels: vec![label_1.clone(), label_2.clone()],
+                },
+                TodoEntity {
+                    id: 2,
+                    text: String::from("todo 2"),
+                    completed: false,
+                    labels: vec![label_1.clone()],
+                },
+            ]
+        );
+    }
+
     #[tokio::test]
     async fn crud_scenario() {
         dotenv().ok();
@@ -174,13 +266,41 @@ mod test {
             .await
             .expect(&format!("fail connect database, url is [{}]", database_url));
 
+        // label data prepare
+        let label_name = String::from("test label");
+        let optional_label = sqlx::query_as::<_, Label>(
+            r#"
+                select * from labels where name=$1
+            "#,
+        )
+        .bind(label_name.clone())
+        .fetch_optional(&pool)
+        .await
+        .expect("Failed to prepare label data.");
+        let label_1 = if let Some(label) = optional_label {
+            label
+        } else {
+            let label = sqlx::query_as::<_, Label>(
+                r#"
+                insert into labels (name)
+                values ($1)
+                returning *
+            "#,
+            )
+            .bind(label_name)
+            .fetch_one(&pool)
+            .await
+            .expect("Failed to insert label data.");
+            label
+        };
+
         let repository = TodoRepositoryForDB::new(pool.clone());
         let todo_text = "[crud_scenario] text";
 
         // create
         let created = repository
             .create(CreateTodo {
-                text: todo_text.to_string(),
+                text: todo_text.to_string(),labels: vec![label_1.id]
             })
             .await
             .expect("[create] returned Err");
@@ -257,8 +377,8 @@ pub mod test_utils {
     }
 
     impl CreateTodo {
-        pub fn new(text: String) -> Self {
-            Self { text }
+        pub fn new(text: String, labels: Vec<i32>) -> Self {
+            Self { text, labels }
         }
     }
 
@@ -334,6 +454,8 @@ pub mod test_utils {
 
     #[cfg(test)]
     mod test {
+        use std::vec;
+
         use super::*;
         use crate::repositories::todo::{CreateTodo, TodoEntity};
 
@@ -344,9 +466,11 @@ pub mod test_utils {
             let expected = TodoEntity::new(id, text.clone());
 
             //create
+            todo!("add datas");
+            let labels = vec![];
             let repository = TodoRepositoryForMemory::new();
             let todo = repository
-                .create(CreateTodo { text })
+                .create(CreateTodo { text, labels })
                 .await
                 .expect("failed create todo");
             assert_eq!(expected, todo);

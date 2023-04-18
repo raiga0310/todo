@@ -149,10 +149,7 @@ pub mod test_utils {
 
     impl Label {
         pub fn new(id: i32, name: String) -> Self {
-            Self {
-                id,
-                name,
-            }
+            Self { id, name }
         }
     }
 
@@ -171,7 +168,7 @@ pub mod test_utils {
 
     impl LabelRepositoryforMemory {
         pub fn new() -> Self {
-            LabelRepositoryforMemory { 
+            LabelRepositoryforMemory {
                 store: Arc::default(),
             }
         }

@@ -64,9 +64,7 @@ fn create_app<Todo: TodoRepository, Label: LabelRepository>(
 ) -> Router {
     Router::new()
         .route("/", get(root))
-        .route("/todos",
-         post(create_todo::<Todo>)
-            .get(all_todo::<Todo>))
+        .route("/todos", post(create_todo::<Todo>).get(all_todo::<Todo>))
         .route(
             "/todos/:id",
             get(find_todo::<Todo>)
@@ -74,7 +72,10 @@ fn create_app<Todo: TodoRepository, Label: LabelRepository>(
                 .patch(update_todo::<Todo>),
         )
         //add new router path is "/labels", and use post method to create label and get method to get all labels
-        .route("/labels", post(create_label::<Label>).get(all_label::<Label>))
+        .route(
+            "/labels",
+            post(create_label::<Label>).get(all_label::<Label>),
+        )
         .route("/labels/:id", delete(delete_label::<Label>))
         .layer(Extension(Arc::new(todo_repository)))
         .layer(Extension(Arc::new(label_repository)))
@@ -94,8 +95,8 @@ async fn root() -> &'static str {
 mod test {
     use super::*;
     use crate::handlers::label;
-    use crate::repositories::label::Label;
     use crate::repositories::label::test_utils::LabelRepositoryforMemory;
+    use crate::repositories::label::Label;
     use crate::repositories::todo::{test_utils::TodoRepositoryForMemory, CreateTodo, TodoEntity};
     use axum::body::{self, Bytes};
     use axum::response::Response;
@@ -157,7 +158,10 @@ mod test {
             Method::POST,
             r#"{ "text": "should_return_created_todo"}"#.to_string(),
         );
-        let res = create_app(todo_repository, label_repository).oneshot(req).await.unwrap();
+        let res = create_app(todo_repository, label_repository)
+            .oneshot(req)
+            .await
+            .unwrap();
         let todo = res_to_todo(res).await;
         assert_eq!(expected, todo);
     }
@@ -165,14 +169,19 @@ mod test {
     #[tokio::test]
     async fn should_find_todo() {
         let expected = TodoEntity::new(1, "should_find_todo".to_string());
+        todo!("add datas");
+        let labels = vec![];
         let todo_repository = TodoRepositoryForMemory::new();
         let label_repository = LabelRepositoryforMemory::new();
         todo_repository
-            .create(CreateTodo::new("should_find_todo".to_string()))
+            .create(CreateTodo::new("should_find_todo".to_string(), labels))
             .await
             .expect("failed create todo");
         let req = build_todo_req_with_empty(Method::GET, "/todos/1");
-        let res = create_app(todo_repository, label_repository).oneshot(req).await.unwrap();
+        let res = create_app(todo_repository, label_repository)
+            .oneshot(req)
+            .await
+            .unwrap();
         let todo = res_to_todo(res).await;
         assert_eq!(expected, todo);
     }
@@ -180,14 +189,19 @@ mod test {
     #[tokio::test]
     async fn should_find_all_todo() {
         let expected = TodoEntity::new(1, "should_find_all_todos".to_string());
+        todo!("add datas");
+        let labels = vec![];
         let todo_repository = TodoRepositoryForMemory::new();
         let label_repository = LabelRepositoryforMemory::new();
         todo_repository
-            .create(CreateTodo::new("should_find_all_todos".to_string()))
+            .create(CreateTodo::new("should_find_all_todos".to_string(), labels))
             .await
             .expect("failed create todo");
         let req = build_todo_req_with_empty(Method::GET, "/todos");
-        let res = create_app(todo_repository, label_repository).oneshot(req).await.unwrap();
+        let res = create_app(todo_repository, label_repository)
+            .oneshot(req)
+            .await
+            .unwrap();
         let bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
         let body: String = String::from_utf8(bytes.to_vec()).unwrap();
         let todos: Vec<TodoEntity> = serde_json::from_str(&body)
@@ -198,11 +212,12 @@ mod test {
     #[tokio::test]
     async fn should_update_todo() {
         let expected = TodoEntity::new(1, "should_updated_todo".to_string());
-
+        todo!("add datas");
+        let labels = vec![];
         let todo_repository = TodoRepositoryForMemory::new();
         let label_repository = LabelRepositoryforMemory::new();
         todo_repository
-            .create(CreateTodo::new("should_find_todo".to_string()))
+            .create(CreateTodo::new("should_find_todo".to_string(), labels))
             .await
             .expect("failed create todo");
         let req = build_todo_req_with_json(
@@ -215,22 +230,30 @@ mod test {
             }"#
             .to_string(),
         );
-        let res = create_app(todo_repository, label_repository).oneshot(req).await.unwrap();
+        let res = create_app(todo_repository, label_repository)
+            .oneshot(req)
+            .await
+            .unwrap();
         let todo = res_to_todo(res).await;
         assert_eq!(expected, todo);
     }
 
     #[tokio::test]
     async fn should_delete_todo() {
+        todo!("add datas");
+        let labels = vec![];
         let todo_repository = TodoRepositoryForMemory::new();
         let label_repository = LabelRepositoryforMemory::new();
         todo_repository
-            .create(CreateTodo::new("should_find_todo".to_string()))
+            .create(CreateTodo::new("should_find_todo".to_string(), labels))
             .await
             .expect("failed create todo");
         let req = build_todo_req_with_empty(Method::DELETE, "/todos/1");
 
-        let res = create_app(todo_repository, label_repository).oneshot(req).await.unwrap();
+        let res = create_app(todo_repository, label_repository)
+            .oneshot(req)
+            .await
+            .unwrap();
         assert_eq!(StatusCode::NO_CONTENT, res.status());
     }
 }
