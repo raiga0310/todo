@@ -73,7 +73,7 @@ impl LabelRepository for LabelRepositoryforDB {
         let labels = sqlx::query_as::<_, Label>(
             r#"
             select * from labels
-            order by label.id asc;
+            order by labels.id asc;
             "#,
         )
         .fetch_all(&self.pool)
@@ -229,6 +229,10 @@ pub mod test_utils {
             //all
             let labels = repository.all().await.expect("failed get all labels");
             assert_eq!(vec![expected], labels);
+
+            //delete
+            let res = repository.delete(id).await;
+            assert!(res.is_ok())
         }
     }
 }
