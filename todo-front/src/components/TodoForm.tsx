@@ -15,6 +15,7 @@ const TodoForm: FC<Props> = ({ onSubmit }) => {
 
         onSubmit({
             text: edtiText,
+            labels: [],
         })
         setEditText('')
     }
