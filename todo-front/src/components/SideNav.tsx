@@ -63,7 +63,7 @@ const SideNav: FC<Props> = ({
             <ListItem disablePadding>
                 <ListItemButton onClick={() => setOpenLabelModal(true)}>
                     <Stack direction="row" alignItems="center" spacing={2}>
-                        <LabelIcon fontSize="small" />
+                        <EditIcon fontSize="small" />
                         <span>edit Label</span>
                     </Stack>
                 </ListItemButton>

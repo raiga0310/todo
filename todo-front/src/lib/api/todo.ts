@@ -1,5 +1,5 @@
-import { PostAdd } from "@mui/icons-material";
-import type { NewTodoPayload, Todo } from "../../types/todo";
+import { Update } from "vite/types/hmrPayload";
+import type { NewTodoPayload, Todo, UpdateTodoPayload } from "../../types/todo";
 
 export const addTodoItem = async (payload: NewTodoPayload) => {
     console.log(payload);
@@ -26,7 +26,7 @@ export const getTodoItem = async () => {
     return json;
 }
 
-export const updateTodoItem = async (todo: Todo) => {
+export const updateTodoItem = async (todo: UpdateTodoPayload) => {
     const { id, ...UpdateTodo } = todo;
     const res = await fetch(`http://localhost:3000/todos/${id}`, {
         method: 'PATCH',
